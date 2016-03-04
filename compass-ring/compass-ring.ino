@@ -1,14 +1,16 @@
 /*
   Takes compass measurement and displays it on a neopixel ring.
+  Red is south, cyan is north.
 */
 #include <Wire.h>
 #include <Adafruit_LSM303.h>
 #include <Adafruit_NeoPixel.h>
 #include <math.h>
 
-#define PIXEL_PIN   6  //pin for neopixel ring
-#define PIXEL_COUNT 12 //ring size
-#define Pi          3.14159
+#define PIXEL_PIN     6   //pin to which he neopixel ring is connected
+#define PIXEL_COUNT   12  //ring size
+#define WIDTH_FACTOR  1.5 //width of compass display pixels that are switched on
+#define BRIGHTNESS    70  //initial brightness
 
 Adafruit_LSM303 lsm;
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, NEO_GRB + NEO_KHZ800);
@@ -28,7 +30,7 @@ void setup()
 
 
   strip.begin(); //initialize pixels
-  strip.setBrightness(50);
+  strip.setBrightness(BRIGHTNESS);
 }
 
 void loop()
@@ -45,13 +47,12 @@ void loop()
 */
 void setDirection(float heading)
 {
-  int pos = (int) (heading / 360 * 12);
-  Serial.println(pos);
+  float pos = heading / 360 * 12;
 
   //loop through the whole ring, set colors depending on position
   for (int i = 0; i < PIXEL_COUNT; i++) {
 
-    int center = i - pos;
+    float center = i - pos;
     if (center < 0) {
       center += PIXEL_COUNT;
     }
@@ -62,9 +63,13 @@ void setDirection(float heading)
 
 
 /*
-  generate ring with consistent colors but a brighter towards the compass direction
+  Generate ring with constant colors but a brighter towards the compass direction.
+  When called by setDirection, north is cyan and south is red.
+  The color position is the addressed neo pixel. Each neo pixel keeps the same color.
+  The brightness is varied as a float, so even compass variations below the pixel
+  resolution can be displayed.
 */
-uint32_t getRingColor(int pixels, int brightnessPosition, int colorPosition)
+uint32_t getRingColor(int pixels, float brightnessPosition, int colorPosition)
 {
   uint32_t color;
 
@@ -72,7 +77,7 @@ uint32_t getRingColor(int pixels, int brightnessPosition, int colorPosition)
   byte offset = (byte) (colorPosition * 255 / pixels);
 
   //make center pixel the brightest via parabola function
-  float widthFactor = pixels * 1.5;
+  float widthFactor = pixels * WIDTH_FACTOR;
   float brightness = (-pow(brightnessPosition - (pixels / 2), 2) + widthFactor) / widthFactor;
 
   if (brightness < 0) {
@@ -103,7 +108,7 @@ uint32_t getRingColor(int pixels, int brightnessPosition, int colorPosition)
 float getDirection(float x, float y)
 {
   // Calculate the angle of the vector y,x
-  float heading = (atan2(y, x) * 180) / Pi;
+  float heading = (atan2(y, x) * 180) / PI;
 
   // Normalize to 0-360
   if (heading < 0)
